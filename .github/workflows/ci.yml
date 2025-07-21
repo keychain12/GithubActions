@@ -7,17 +7,17 @@ on:
     branches: [ "main" ]
 
 jobs:
+  # 첫 번째 잡: 빌드하고 Docker Hub에 푸시
   build-and-push-docker-image:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # 👇 이 부분의 버전을 21로 변경합니다.
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
-          distribution: 'corretto' # JDK 배포판을 'corretto'로 명시해주는 것이 좋습니다.
+          distribution: 'corretto'
 
       - name: Build with Gradle
         run: |
@@ -35,4 +35,24 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/my-spring-app:latest
+          # 👇 배포 스크립트와 이름을 통일했습니다.
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/order-service:latest
+
+  # 👇 두 번째 잡: EC2에 배포. 첫 번째 잡과 동일한 레벨의 들여쓰기입니다.
+  deploy:
+    # build-and-push-docker-image 잡이 성공해야만 실행됩니다.
+    needs: build-and-push-docker-image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/order-service:latest
+            docker stop order-service || true
+            docker rm order-service || true
+            docker run -d --name order-service -p 80:8080 ${{ secrets.DOCKERHUB_USERNAME }}/order-service:latest
