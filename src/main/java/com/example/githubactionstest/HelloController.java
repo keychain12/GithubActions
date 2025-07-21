@@ -8,6 +8,6 @@ public class HelloController {
 
     @GetMapping("/")
     public String home() {
-        return "Hello Github Actions!";
+        return "동해물과 백두산이 마르고닳도록!";
     }
 }
